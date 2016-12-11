@@ -138,7 +138,6 @@ def train():
                         inp_seed = np.array([example[0][0]])
 
                         print '\n'
-                        print 'Sample: ', ''.join(i2c(example[0]))
                         print '--- SAMPLE BEGIN ---'
                         num_chars = 100
                         ixes = []
