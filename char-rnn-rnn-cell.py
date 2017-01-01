@@ -38,9 +38,10 @@ def gen_epoch_data(num_epochs, batch_size, seq_length):
 sample_data = range(1000)
 num_epochs = 100
 batch_size = 50
-seq_length = 25
+seq_length = 200
 hidden_size = 100
-learning_rate = 0.001
+learning_rate = 0.005
+checkpoint_file = "rnn-cell-model.ckpt"
 
 '''
 for idx, epoch in enumerate(gen_epoch_data(num_epochs, batch_size, seq_length)):
@@ -48,15 +49,22 @@ for idx, epoch in enumerate(gen_epoch_data(num_epochs, batch_size, seq_length)):
         print X, Y
 '''
 
-def train_network(graph, num_epochs, batch_size, seq_length):
+def train_network(graph, num_epochs, batch_size, seq_length, checkpoint):
     tf.set_random_seed(2345)
+    prev_epoch_loss = 1e50
+    losses = []
     with tf.Session() as sess:
         sess.run(tf.initialize_all_variables())
+        if os.path.isfile(checkpoint):
+            g['saver'].restore(sess, checkpoint)
 
         for idx, epoch in enumerate(gen_epoch_data(num_epochs, batch_size, seq_length)):
             # training_state = np.zeros([batch_size, hidden_size], dtype=float)
             training_state = None
+            epoch_loss = 0.0
+            batches = 0
             for batchIdx, (x, y) in enumerate(epoch):
+                batches = batches + 1
                 feed_dict = {
                     graph['x'] : x,
                     graph['y'] : y,
@@ -78,12 +86,21 @@ def train_network(graph, num_epochs, batch_size, seq_length):
                     ],
                     feed_dict
                 )
+                epoch_loss += total_loss
+                '''
                 if batchIdx % 5 == 0:
                     print 'Epoch:', idx, 'Batch:', batchIdx, 'Loss:', total_loss
                     print init_state
                     print '---'
                     print training_state
-    return
+                '''
+            epoch_loss /= batches
+            print 'Epoch:', idx, 'Average epoch loss:', epoch_loss
+            if epoch_loss < prev_epoch_loss:
+                g['saver'].save(sess, checkpoint_file)
+            prev_epoch_loss = epoch_loss
+            losses.append(epoch_loss)
+    return losses
 
 def build_graph(batch_size, seq_length, vocab_size, state_size, learning_rate):
     # Get the inputs.
@@ -139,7 +156,14 @@ def build_graph(batch_size, seq_length, vocab_size, state_size, learning_rate):
         final_state = final_state,
         total_loss = total_loss,
         train_step = train_step,
+        saver = tf.train.Saver()
     )
 
 g = build_graph(batch_size, seq_length, vocab_size, hidden_size, learning_rate)
-train_network(g, num_epochs, batch_size, seq_length)
+losses = train_network(g, num_epochs, batch_size, seq_length, checkpoint_file)
+f = open('rnn-cell-losses.txt', 'w')
+for loss in losses:
+    f.write(str(loss) + '\n')
+f.close()
+plt.plot(losses)
+plt.show()
